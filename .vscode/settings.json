@@ -1,0 +1,28 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "better-comments.multilineComments": true,
+    "better-comments.highlightPlainText": false,
+    "task.allowAutomaticTasks": "on",
+    "workbench.colorCustomizations": {
+        "activityBar.activeBackground": "#883f3c",
+        "activityBar.background": "#883f3c",
+        "activityBar.foreground": "#15202b",
+        "activityBar.inactiveForeground": "#15202b99",
+        "activityBarBadge.background": "#008000",
+        "activityBarBadge.foreground": "#e7e7e7",
+        "commandCenter.border": "#15202b99",
+        "sash.hoverBorder": "#883f3c",
+        "statusBar.background": "#ff6969",
+        "statusBar.foreground": "#15202b",
+        "statusBarItem.hoverBackground": "#ff3636",
+        "statusBarItem.remoteBackground": "#ff6969",
+        "statusBarItem.remoteForeground": "#15202b",
+        "titleBar.activeBackground": "#ff6969",
+        "titleBar.activeForeground": "#15202b",
+        "titleBar.inactiveBackground": "#ff696999",
+        "titleBar.inactiveForeground": "#15202b99"
+    },
+    "peacock.color": "#FF6969"
+}
