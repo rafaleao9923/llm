@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+        <title>Simple Chat App</title>
+        
+        <!-- Some very simple styling -->
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            #message-input {
+                width: 95%;
+                padding: 8px;
+            }
+
+            #chat-container {
+                width: 95%;
+                margin: 20px auto;
+                border: 1px solid #ccc;
+                padding: 10px;
+                overflow-y: scroll;
+                max-height: 300px;
+            }
+        </style>
+    </head>
+
+    <!-- Our body is simple with only three fields:
+        a text input, send button, and container for chat-->
+    <body>
+        <form onsubmit="return false;"">
+            <input
+                type="text"
+                id="message-input"
+                placeholder="Type your message..."
+            >
+            <button onclick="sendMessage()" type="submit">Send</button>
+        </form>
+        <div id="chat-container"></div>
+    </body>
+
+    <!-- JavaScript to handle communication with LLM and streaming response -->
+    <script>
+        // When send button is pushed move text from input to chat box
+        // and send the message to the LLM server
+        function sendMessage() {
+            var messageInput = document.getElementById('message-input');
+            var message = messageInput.value.trim();
+
+            if (message !== '') {
+                appendMessage('You: ' + message);
+                messageInput.value = '';
+                sendToServer(message);
+            }
+        }
+
+        // Add new messages to the chat box
+        function appendMessage(message) {
+            var chatContainer = document.getElementById('chat-container');
+            var messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageElement
+        }
+
+        // Send prompt to server and stream the response back as tokens are received
+        async function sendToServer(message) {
+            var payload = {
+                prompt: message
+            }
+
+            const response = await fetch('http://localhost:8000/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            var responseText = 'LLM: ';
+            messageElement = appendMessage(responseText);
+            
+            for await (const chunk of streamAsyncIterator(response.body)) {
+                var strChunk = String.fromCharCode.apply(null, chunk);
+                responseText += strChunk;
+                messageElement.textContent = responseText;
+            }
+        }
+
+        // Simple polyfill since StreamResponse still can't be used 
+        // as iterator by most browsers
+        async function* streamAsyncIterator(stream) {
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) return;
+                    yield value;
+                }
+            }
+            finally {
+                reader.releaseLock();
+            }
+        }
+    </script>
+</html>

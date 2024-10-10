@@ -6,6 +6,7 @@
 import itertools
 import math
 import os
+import tiktoken
 import torch
 from previous_chapters import GPTModel, create_dataloader_v1
 
@@ -23,18 +24,21 @@ HPARAM_GRID = {
 }
 
 
-def calc_loss_loader(data_loader, model, device, num_iters=None):
-    total_loss, num_batches = 0., 0
-    if num_iters is None:
-        num_iters = len(data_loader)
+def calc_loss_loader(data_loader, model, device, num_batches=None):
+    total_loss = 0.
+    if len(data_loader) == 0:
+        return float("nan")
+    elif num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
     for i, (input_batch, target_batch) in enumerate(data_loader):
-        if i < num_iters:
+        if i < num_batches:
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             total_loss += loss.item()
-            num_batches += 1
         else:
             break
-    return total_loss
+    return total_loss / num_batches
 
 
 def calc_loss_batch(input_batch, target_batch, model, device):
@@ -49,15 +53,15 @@ def calc_loss_batch(input_batch, target_batch, model, device):
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
     model.eval()
     with torch.no_grad():
-        train_loss = calc_loss_loader(train_loader, model, device, num_iters=eval_iter)
-        val_loss = calc_loss_loader(val_loader, model, device, num_iters=eval_iter)
+        train_loss = calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
+        val_loss = calc_loss_loader(val_loader, model, device, num_batches=eval_iter)
     model.train()
     return train_loss, val_loss
 
 
 def train_model(model, train_loader, val_loader, optimizer, device,
                 n_epochs, eval_freq, eval_iter,
-                encoded_start_context, warmup_iters=10,
+                encoded_start_context, tokenizer, warmup_iters=10,
                 initial_lr=3e-05, min_lr=1e-6):
     global_step = 0
 
@@ -78,7 +82,7 @@ def train_model(model, train_loader, val_loader, optimizer, device,
             global_step += 1
 
             # Warmup: adjust learning rate linearly
-            if global_step < warmup_iters:
+            if global_step <= warmup_iters:
                 lr = initial_lr + global_step * lr_increment
             # Cosine annealing phase
             else:
@@ -119,6 +123,7 @@ if __name__ == "__main__":
     with open(os.path.join(script_dir, "the-verdict.txt"), "r", encoding="utf-8") as file:
         text_data = file.read()
 
+    tokenizer = tiktoken.get_encoding("gpt2")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_ratio = 0.95
@@ -138,32 +143,34 @@ if __name__ == "__main__":
             HPARAM_CONFIG = dict(zip(HPARAM_GRID.keys(), combination))
 
             GPT_CONFIG_124M = {
-                "vocab_size": 50257,  # Vocabulary size
-                "ctx_len": 256,       # Context length -- shortened from original 1024 tokens
-                "emb_dim": 768,       # Embedding dimension
-                "n_heads": 12,        # Number of attention heads
-                "n_layers": 12,       # Number of layers
+                "vocab_size": 50257,    # Vocabulary size
+                "context_length": 256,  # Context length -- shortened from original 1024 tokens
+                "emb_dim": 768,         # Embedding dimension
+                "n_heads": 12,          # Number of attention heads
+                "n_layers": 12,         # Number of layers
                 "drop_rate": HPARAM_CONFIG["drop_rate"],
-                "qkv_bias": False,    # Query-Key-Value bias
+                "qkv_bias": False,     # Query-Key-Value bias
             }
 
             torch.manual_seed(123)
             train_loader = create_dataloader_v1(
                 text_data[:split_idx],
                 batch_size=HPARAM_CONFIG["batch_size"],
-                max_length=GPT_CONFIG_124M["ctx_len"],
-                stride=GPT_CONFIG_124M["ctx_len"],
+                max_length=GPT_CONFIG_124M["context_length"],
+                stride=GPT_CONFIG_124M["context_length"],
                 drop_last=True,
-                shuffle=True
+                shuffle=True,
+                num_workers=0
             )
 
             val_loader = create_dataloader_v1(
                 text_data[split_idx:],
                 batch_size=HPARAM_CONFIG["batch_size"],
-                max_length=GPT_CONFIG_124M["ctx_len"],
-                stride=GPT_CONFIG_124M["ctx_len"],
+                max_length=GPT_CONFIG_124M["context_length"],
+                stride=GPT_CONFIG_124M["context_length"],
                 drop_last=False,
-                shuffle=False
+                shuffle=False,
+                num_workers=0
             )
 
             model = GPTModel(GPT_CONFIG_124M)
@@ -175,7 +182,7 @@ if __name__ == "__main__":
                 weight_decay=HPARAM_CONFIG["weight_decay"]
             )
 
-            encoded_start_context = train_loader.dataset.tokenizer.encode("Nevertheless")
+            encoded_start_context = tokenizer.encode("Nevertheless")
             encoded_tensor = torch.tensor(encoded_start_context).unsqueeze(0)
 
             train_loss, val_loss = train_model(
@@ -183,6 +190,7 @@ if __name__ == "__main__":
                 n_epochs=HPARAM_CONFIG["n_epochs"],
                 eval_freq=5, eval_iter=1,
                 encoded_start_context=encoded_tensor,
+                tokenizer=tokenizer,
                 warmup_iters=HPARAM_CONFIG["warmup_iters"],
                 initial_lr=HPARAM_CONFIG["initial_lr"],
                 min_lr=HPARAM_CONFIG["min_lr"]

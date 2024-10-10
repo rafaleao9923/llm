@@ -11,12 +11,11 @@ from torch.utils.data import Dataset, DataLoader
 
 class GPTDatasetV1(Dataset):
     def __init__(self, txt, tokenizer, max_length, stride):
-        self.tokenizer = tokenizer
         self.input_ids = []
         self.target_ids = []
 
         # Tokenize the entire text
-        token_ids = tokenizer.encode(txt)
+        token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
 
         # Use a sliding window to chunk the book into overlapping sequences of max_length
         for i in range(0, len(token_ids) - max_length, stride):
@@ -33,7 +32,7 @@ class GPTDatasetV1(Dataset):
 
 
 def create_dataloader_v1(txt, batch_size=4, max_length=256,
-                         stride=128, shuffle=True, drop_last=True):
+                         stride=128, shuffle=True, drop_last=True, num_workers=0):
     # Initialize the tokenizer
     tokenizer = tiktoken.get_encoding("gpt2")
 
@@ -42,13 +41,13 @@ def create_dataloader_v1(txt, batch_size=4, max_length=256,
 
     # Create dataloader
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+        dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=num_workers)
 
     return dataloader
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, block_size, dropout, num_heads, qkv_bias=False):
+    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
 
@@ -61,7 +60,7 @@ class MultiHeadAttention(nn.Module):
         self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.out_proj = nn.Linear(d_out, d_out)  # Linear layer to combine head outputs
         self.dropout = nn.Dropout(dropout)
-        self.register_buffer('mask', torch.triu(torch.ones(block_size, block_size), diagonal=1))
+        self.register_buffer('mask', torch.triu(torch.ones(context_length, context_length), diagonal=1))
 
     def forward(self, x):
         b, num_tokens, d_in = x.shape

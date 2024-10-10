@@ -15,6 +15,7 @@ import argparse
 import os
 from pathlib import Path
 import time
+import tiktoken
 import torch
 from previous_chapters import (
     create_dataloader_v1,
@@ -32,7 +33,7 @@ def read_text_file(file_path):
     return text_data
 
 
-def create_dataloaders(text_data, train_ratio, batch_size, max_length, stride):
+def create_dataloaders(text_data, train_ratio, batch_size, max_length, stride, num_workers=0):
     split_idx = int(train_ratio * len(text_data))
     train_loader = create_dataloader_v1(
         text_data[:split_idx],
@@ -40,7 +41,8 @@ def create_dataloaders(text_data, train_ratio, batch_size, max_length, stride):
         max_length=max_length,
         stride=stride,
         drop_last=True,
-        shuffle=True
+        shuffle=True,
+        num_workers=num_workers
     )
     val_loader = create_dataloader_v1(
         text_data[split_idx:],
@@ -48,7 +50,8 @@ def create_dataloaders(text_data, train_ratio, batch_size, max_length, stride):
         max_length=max_length,
         stride=stride,
         drop_last=False,
-        shuffle=False
+        shuffle=False,
+        num_workers=num_workers
     )
     return train_loader, val_loader
 
@@ -78,7 +81,7 @@ def print_eta(start_time, book_start_time, index, total_files):
 
 def train_model_simple(model, optimizer, device, n_epochs,
                        eval_freq, eval_iter, print_sample_iter, start_context,
-                       output_dir, save_ckpt_freq,
+                       output_dir, save_ckpt_freq, tokenizer,
                        batch_size=1024, train_ratio=0.90):
 
     train_losses, val_losses, track_tokens_seen = [], [], []
@@ -100,8 +103,9 @@ def train_model_simple(model, optimizer, device, n_epochs,
                     text_data,
                     train_ratio=train_ratio,
                     batch_size=batch_size,
-                    max_length=GPT_CONFIG_124M["ctx_len"],
-                    stride=GPT_CONFIG_124M["ctx_len"]
+                    max_length=GPT_CONFIG_124M["context_length"],
+                    stride=GPT_CONFIG_124M["context_length"],
+                    num_workers=0
                 )
                 print("Training ...")
                 model.train()
@@ -126,7 +130,7 @@ def train_model_simple(model, optimizer, device, n_epochs,
                     # Generate text passage
                     if global_step % print_sample_iter == 0:
                         generate_and_print_sample(
-                            model, train_loader.dataset.tokenizer, device, start_context
+                            model, tokenizer, device, start_context
                         )
 
                 if global_step % save_ckpt_freq:
@@ -164,24 +168,39 @@ if __name__ == "__main__":
                         help='Learning rate for the optimizer')
     parser.add_argument('--batch_size', type=int, default=4,
                         help='Batch size for training')
+    parser.add_argument('--debug', type=bool, default=False,
+                        help='Uses a very small model for debugging purposes')
 
     args = parser.parse_args()
 
-    GPT_CONFIG_124M = {
-        "vocab_size": 50257,  # Vocabulary size
-        "ctx_len": 1024,      # Context length
-        "emb_dim": 768,       # Embedding dimension
-        "n_heads": 12,        # Number of attention heads
-        "n_layers": 12,       # Number of layers
-        "drop_rate": 0.1,     # Dropout rate
-        "qkv_bias": False     # Query-key-value bias
-    }
+    if args.debug:
+        GPT_CONFIG_124M = {
+            "vocab_size": 50257,     # Vocabulary size
+            "context_length": 10,    # Context length
+            "emb_dim": 12,           # Embedding dimension
+            "n_heads": 2,            # Number of attention heads
+            "n_layers": 2,           # Number of layers
+            "drop_rate": 0.0,        # Dropout rate, deactivated via 0.0 as dropout in LLMs is not recommended anymore
+            "qkv_bias": False        # Query-key-value bias
+        }
+
+    else:
+        GPT_CONFIG_124M = {
+            "vocab_size": 50257,     # Vocabulary size
+            "context_length": 1024,  # Context length
+            "emb_dim": 768,          # Embedding dimension
+            "n_heads": 12,           # Number of attention heads
+            "n_layers": 12,          # Number of layers
+            "drop_rate": 0.1,        # Dropout rate
+            "qkv_bias": False        # Query-key-value bias
+        }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(123)
     model = GPTModel(GPT_CONFIG_124M)
     model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.1)
+    tokenizer = tiktoken.get_encoding("gpt2")
 
     data_dir = args.data_dir
     all_files = [os.path.join(path, name) for path, subdirs, files
@@ -207,11 +226,10 @@ if __name__ == "__main__":
         output_dir=output_dir,
         save_ckpt_freq=args.save_ckpt_freq,
         start_context="Every effort moves you",
+        tokenizer=tokenizer
     )
 
     epochs_tensor = torch.linspace(0, args.n_epochs, len(train_losses))
-
-    print("debug", epochs_tensor, tokens_seen, train_losses, val_losses, output_dir)
     plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses, output_dir)
 
     torch.save(model.state_dict(), output_dir / "model_pg_final.pth")

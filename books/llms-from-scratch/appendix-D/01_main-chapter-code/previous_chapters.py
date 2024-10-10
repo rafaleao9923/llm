@@ -20,12 +20,11 @@ import matplotlib.pyplot as plt
 
 class GPTDatasetV1(Dataset):
     def __init__(self, txt, tokenizer, max_length, stride):
-        self.tokenizer = tokenizer
         self.input_ids = []
         self.target_ids = []
 
         # Tokenize the entire text
-        token_ids = tokenizer.encode(txt)
+        token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
 
         # Use a sliding window to chunk the book into overlapping sequences of max_length
         for i in range(0, len(token_ids) - max_length, stride):
@@ -42,7 +41,7 @@ class GPTDatasetV1(Dataset):
 
 
 def create_dataloader_v1(txt, batch_size=4, max_length=256,
-                         stride=128, shuffle=True, drop_last=True):
+                         stride=128, shuffle=True, drop_last=True, num_workers=0):
     # Initialize the tokenizer
     tokenizer = tiktoken.get_encoding("gpt2")
 
@@ -51,7 +50,7 @@ def create_dataloader_v1(txt, batch_size=4, max_length=256,
 
     # Create dataloader
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+        dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=num_workers)
 
     return dataloader
 
@@ -61,7 +60,7 @@ def create_dataloader_v1(txt, batch_size=4, max_length=256,
 #####################################
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, block_size, dropout, num_heads, qkv_bias=False):
+    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by n_heads"
 
@@ -74,7 +73,7 @@ class MultiHeadAttention(nn.Module):
         self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.out_proj = nn.Linear(d_out, d_out)  # Linear layer to combine head outputs
         self.dropout = nn.Dropout(dropout)
-        self.register_buffer('mask', torch.triu(torch.ones(block_size, block_size), diagonal=1))
+        self.register_buffer('mask', torch.triu(torch.ones(context_length, context_length), diagonal=1))
 
     def forward(self, x):
         b, num_tokens, d_in = x.shape
@@ -152,7 +151,6 @@ class FeedForward(nn.Module):
             nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
             GELU(),
             nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"]),
-            nn.Dropout(cfg["drop_rate"])
         )
 
     def forward(self, x):
@@ -165,28 +163,28 @@ class TransformerBlock(nn.Module):
         self.att = MultiHeadAttention(
             d_in=cfg["emb_dim"],
             d_out=cfg["emb_dim"],
-            block_size=cfg["ctx_len"],
+            context_length=cfg["context_length"],
             num_heads=cfg["n_heads"],
             dropout=cfg["drop_rate"],
             qkv_bias=cfg["qkv_bias"])
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"])
         self.norm2 = LayerNorm(cfg["emb_dim"])
-        self.drop_resid = nn.Dropout(cfg["drop_rate"])
+        self.drop_shortcut = nn.Dropout(cfg["drop_rate"])
 
     def forward(self, x):
         # Shortcut connection for attention block
         shortcut = x
         x = self.norm1(x)
         x = self.att(x)   # Shape [batch_size, num_tokens, emb_size]
-        x = self.drop_resid(x)
+        x = self.drop_shortcut(x)
         x = x + shortcut  # Add the original input back
 
         # Shortcut connection for feed-forward block
         shortcut = x
         x = self.norm2(x)
         x = self.ff(x)
-        x = self.drop_resid(x)
+        x = self.drop_shortcut(x)
         x = x + shortcut  # Add the original input back
 
         return x
@@ -196,7 +194,7 @@ class GPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
-        self.pos_emb = nn.Embedding(cfg["ctx_len"], cfg["emb_dim"])
+        self.pos_emb = nn.Embedding(cfg["context_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
 
         self.trf_blocks = nn.Sequential(
@@ -256,17 +254,20 @@ def calc_loss_batch(input_batch, target_batch, model, device):
 
 
 def calc_loss_loader(data_loader, model, device, num_batches=None):
-    total_loss, batches_seen = 0., 0.
-    if num_batches is None:
+    total_loss = 0.
+    if len(data_loader) == 0:
+        return float("nan")
+    elif num_batches is None:
         num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
     for i, (input_batch, target_batch) in enumerate(data_loader):
         if i < num_batches:
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             total_loss += loss.item()
-            batches_seen += 1
         else:
             break
-    return total_loss / batches_seen
+    return total_loss / num_batches
 
 
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
@@ -292,7 +293,7 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
 
 
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
-    fig, ax1 = plt.subplots()
+    fig, ax1 = plt.subplots(figsize=(5, 3))
 
     # Plot training and validation loss against epochs
     ax1.plot(epochs_seen, train_losses, label="Training loss")
@@ -307,7 +308,7 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     ax2.set_xlabel("Tokens seen")
 
     fig.tight_layout()  # Adjust layout to make room
-    plt.show()
+    # plt.show()
 
 
 def text_to_token_ids(text, tokenizer):
