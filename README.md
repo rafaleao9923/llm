@@ -6,7 +6,6 @@
 - [Table of Contents](#table-of-contents)
   - [Repositories](#repositories)
   - [Applications](#applications)
-
 ## Repositories
 
 [nano-graphrag](https://github.com/gusye1234/nano-graphrag)
