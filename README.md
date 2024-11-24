@@ -25,11 +25,14 @@
 - [nano-graphrag](https://github.com/gusye1234/nano-graphrag)
 - [unstract](https://github.com/Zipstack/unstract)
 - [applied-llm](https://github.com/meri-nova/applied-llm)
+- [kotaemon](https://github.com/Cinnamon/kotaemon)
 
 ## Applications
 
 - [ChatGPT](https://github.com/lencx/ChatGPT)
 - [screenpipe](https://github.com/mediar-ai/screenpipe)
+- [docling](https://github.com/DS4SD/docling)
+- [cline](https://github.com/cline/cline) 
 
 ## Courses
 

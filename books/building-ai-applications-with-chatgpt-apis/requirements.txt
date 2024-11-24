@@ -1,0 +1,10 @@
+# source .venv/bin/activate
+Flask==3.0.2
+openai==1.13.3
+stripe==5.4.0
+
+pydub==0.25.1
+python-pptx==0.6.21
+PyQt6==6.5.3
+python-docx==0.8.11
+Django==4.2.5
