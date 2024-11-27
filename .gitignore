@@ -1,0 +1,4 @@
+# user defined
+/others/test/api_key.config
+/others/test/create_config.py
+__pycache__
