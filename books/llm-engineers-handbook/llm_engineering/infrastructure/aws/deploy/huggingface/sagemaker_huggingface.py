@@ -1,10 +1,14 @@
 import enum
 from typing import Optional
 
-import boto3
 from loguru import logger
-from sagemaker.enums import EndpointType
-from sagemaker.huggingface import HuggingFaceModel
+
+try:
+    import boto3
+    from sagemaker.enums import EndpointType
+    from sagemaker.huggingface import HuggingFaceModel
+except ModuleNotFoundError:
+    logger.warning("Couldn't load AWS or SageMaker imports. Run 'poetry install --with aws' to support AWS.")
 
 from llm_engineering.domain.inference import DeploymentStrategy
 from llm_engineering.settings import settings
@@ -165,9 +169,6 @@ class DeploymentService:
             role=role_arn,
             image_uri=llm_image,
             env=config,
-            transformers_version="4.6",  # Transformers version
-            pytorch_version="1.13",  # PyTorch version
-            py_version="py310",
         )
 
         # Deploy or update the model based on the endpoint existence
@@ -179,4 +180,5 @@ class DeploymentService:
             resources=resources,
             tags=[{"Key": "task", "Value": "model_task"}],
             endpoint_type=endpoint_type,
+            container_startup_health_check_timeout=900,
         )

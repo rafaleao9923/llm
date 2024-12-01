@@ -6,8 +6,8 @@ services:
       options:
         max-size: 1g
     environment:
-      MONGO_INITDB_ROOT_USERNAME: "decodingml"
-      MONGO_INITDB_ROOT_PASSWORD: "decodingml"
+      MONGO_INITDB_ROOT_USERNAME: "llm_engineering"
+      MONGO_INITDB_ROOT_PASSWORD: "llm_engineering"
     ports:
       - 27017:27017
     volumes:
@@ -26,7 +26,7 @@ services:
       - 6333
       - 6334
     volumes:
-      - qdrant_data:/qdrant/storage:z
+      - qdrant_data:/qdrant/storage
     networks:
       - local
     restart: always
