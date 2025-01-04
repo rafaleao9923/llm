@@ -2,3 +2,5 @@
 /others/test/api_key.config
 /others/test/create_config.py
 __pycache__
+
+/books/using-stable-diffusion-with-python

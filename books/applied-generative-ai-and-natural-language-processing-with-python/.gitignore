@@ -12,4 +12,10 @@ db/
 *.gguf
 glove.6B.100d.txt
 *.joblib
-.venv/
+venv/
+.venv
+*.txt
+*.pt
+*.zip
+.env
+data
