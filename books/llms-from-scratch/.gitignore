@@ -31,16 +31,22 @@ appendix-E/01_main-chapter-code/gpt2
 
 ch05/01_main-chapter-code/gpt2/
 ch05/02_alternative_weight_loading/checkpoints
+ch05/02_alternative_weight_loading/*.safetensors
 ch05/01_main-chapter-code/model.pth
 ch05/01_main-chapter-code/model_and_optimizer.pth
 ch05/03_bonus_pretraining_on_gutenberg/model_checkpoints
 ch05/06_user_interface/gpt2
+ch05/07_gpt_to_llama/.cache
 ch05/07_gpt_to_llama/Llama-2-7b
 ch05/07_gpt_to_llama/Llama-2-7b-chat
-ch05/07_gpt_to_llama/.cache
-ch05/07_gpt_to_llama/llama3-files
-ch05/07_gpt_to_llama/llama31-files
-ch05/07_gpt_to_llama/llama32-files
+ch05/07_gpt_to_llama/Llama-3-8B
+ch05/07_gpt_to_llama/Llama-3-8B-Instruct
+ch05/07_gpt_to_llama/Llama-3.1-8B
+ch05/07_gpt_to_llama/Llama-3.1-8B-Instruct
+ch05/07_gpt_to_llama/Llama-3.2-1B
+ch05/07_gpt_to_llama/Llama-3.2-1B-Instruct
+ch05/07_gpt_to_llama/Llama-3.2-3B
+ch05/07_gpt_to_llama/Llama-3.2-3B-Instruct
 
 ch06/01_main-chapter-code/gpt2
 ch06/02_bonus_additional-experiments/gpt2
@@ -95,6 +101,13 @@ ch07/01_main-chapter-code/instruction-data-with-response-phi3-prompt.json
 ch07/02_dataset-utilities/instruction-examples-modified.json
 ch07/04_preference-tuning-with-dpo/gpt2-medium355M-sft.pth
 ch07/04_preference-tuning-with-dpo/loss-plot.pdf
+
+# Tokenizer files
+ch02/05_bpe-from-scratch/bpe_merges.txt
+ch02/05_bpe-from-scratch/encoder.json
+ch02/05_bpe-from-scratch/vocab.bpe
+ch02/05_bpe-from-scratch/vocab.json
+
 
 # Other
 ch0?/0?_user_interface/.chainlit/
@@ -231,6 +244,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.python-version
+uv.lock
 env/
 venv/
 ENV/

@@ -22,9 +22,12 @@ jobs:
 
       - name: Install codespell
         run: |
-          python -m pip install --upgrade pip
-          pip install codespell
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv python install 3.10
+          uv add . --dev
+          uv add codespell
 
       - name: Run codespell
         run: |
+          source .venv/bin/activate
           codespell -L "ocassion,occassion,ot,te,tje" **/*.{txt,md,py,ipynb}
