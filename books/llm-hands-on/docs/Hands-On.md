@@ -15047,11 +15047,6 @@ discussed. Both BERT models and embedding models will make an appearance as
 
 well as a wide range of fine-tuning techniques.
 
-```
-Summary | 321
-```
-
-
 **CHAPTER 11**
 
 ## Fine-Tuning Representation
@@ -16651,8 +16646,6 @@ focus on generative models instead. Using a two-step process, we will explore ho
 fine-tune a generative model to properly follow instructions and then fine-tune it for
 
 human preference.
-
-**354 | Chapter 11: Fine-Tuning Representation Models for Classification**
 
 
 **CHAPTER 12**
